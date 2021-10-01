@@ -7,6 +7,7 @@ from models.orders import Orders
 from models.furnitures import Furnitures
 from models.clients import Clients
 from models.employees import Employees
+from models.storage import Storage
 from utils import utils
 from ref_book import ref_book
 from auth import auth as authorization
@@ -15,12 +16,14 @@ from ref_book.commands import commands_global as cg
 from ref_book.commands import commands_clients as cc
 from ref_book.commands import commands_employees as ce
 from ref_book.commands import commands_furnitures as cf
+from ref_book.commands import commands_storage as cs
 from ref_book.commands import commands_orders as co
 import getpass
 
 employees = Employees()
 clients = Clients()
 furnitures = Furnitures()
+storage = Storage()
 orders = Orders()
 
 user = None
@@ -58,6 +61,8 @@ def main_menu():
             furnitures_menu()
         elif i == 4:
             orders_menu()
+        elif i == 5:
+            storage_menu()
     else:
         print('''\nВы ввели что-то непонятное... 
         Прочитайте инструкцию по использованию данной программы:''')
@@ -477,7 +482,146 @@ def edit_furniture(id: int):
     else:
         print('Произошла ошибка при изменении информации о мебели!')
 
+def storage_menu():
+    global user
+    command = input(f'\n~{user.login}~/storage: ')
+    arr = command.split()
+    command = arr[0]
+    if command in cs:
+        i = cs[command]
+        if i == -2:
+            main_menu()
+        elif i == -1:
+            exit()
+        elif i == 0:
+            help(5)
+            storage_menu()
+        elif i == 1:
+            get_storage()
+        elif i == 2:
+            try:
+                get_item(int(arr[1]))
+            except IndexError:
+                print('Вы забыли ввести ИД...')
+                help(5)
+                storage_menu()
+            except ValueError:
+                print('Вы ввели что-то странное...')
+                help(5)
+                storage_menu()
+        elif i == 3:
+            add_item()
+        elif i == 4:
+            try:
+                del_item(int(arr[1]))
+            except IndexError:
+                print('Вы забыли ввести ИД...')
+                help(5)
+                storage_menu()
+            except ValueError:
+                print('Вы ввели что-то странное...')
+                help(5)
+                storage_menu()
+        elif i == 5:
+            try:
+                edit_item(int(arr[1]))
+            except IndexError:
+                print('Вы забыли ввести ИД...')
+                help(5)
+                storage_menu()
+            except ValueError:
+                print('Вы ввели что-то странное...')
+                help(5)
+                storage_menu()
+    else:
+        print('''\nВы ввели что-то непонятное... 
+        Прочитайте инструкцию по использованию данной программы:''')
+        help(5)
+        storage_menu()
 
+def get_storage():
+    print()
+    global furnitures
+    print(storage.get_storage_table(furnitures))
+    storage_menu()
+
+def get_item(id: int):
+    global furnitures
+    item = storage.get_by_id_str(id, furnitures)
+    if item:
+        print(item)
+        storage_menu()
+    else:
+        print('\nНет мебели с заданным ИД.')
+        storage_menu()
+
+
+def add_item():
+    global furnitures, storage
+    try: 
+        print(furnitures.get_furnitures_table())
+        fur_id = int(input('Введите ИД мебели: '))
+        if furnitures.get_by_id(fur_id) == None:
+            print('\nНет мебели с заданным ИД.')
+            storage_menu()
+        quantity = int(input('Введите количество: ') )
+    except ValueError:
+        print('Вы ввели данные неправильного формата')
+        storage_menu()
+    
+    storage.add(fur_id, quantity)
+    storage.save()
+    print('Мебель успешно занесена на склад.')
+    storage_menu()
+
+def del_item(id: int):
+    global furnitures, storage
+    if not storage.get_by_id(id):
+            print('На складе нет мебели с таким ИД.') 
+            storage_menu()
+    ans = input(f'Вы точно хотите удалить мебель №{id} со склада? (y/n)\n')
+    if ans == 'y':
+        ok = storage.delete(id)
+        if ok:
+            storage.save()
+            print('Мебель успешно удалена со склада.')
+            storage_menu()
+        else:
+            print('Произошла ошибка при удалении мебели со склада!')
+            storage_menu()
+    else:
+        storage_menu()
+
+def edit_item(id: int):
+    global furnitures, storage
+    try:
+        if not storage.get_by_id(id):
+            print('На складе нет мебели с таким ИД.') 
+            storage_menu()
+        if int(input('Вы хотите увеличить количество или уменьшить? (увеличить - 1, уменьшить - 2)')) == 1:
+            quantity = int(input('Введите количество, которое нужно добавить: ') )
+            ok = storage.edit_add(id, quantity)
+            if ok:
+                storage.save()
+                print('Количество успешно изменено.') 
+                storage_menu()
+            else:
+                print('Произошла ошибка при изменении информации о мебели!')
+                storage_menu()
+        else:
+            quantity = int(input('Введите количество на которое нужно уменьшить: ') )
+            ok = storage.edit_del(id, quantity)
+            if ok:
+                storage.save()
+                print('Количество успешно изменено.') 
+                storage_menu()
+            else:
+                print('Произошла ошибка при изменении информации о мебели!')
+                storage_menu()
+    except ValueError:
+        print('Вы ввели данные неправильного формата')
+        storage_menu()
+    
 
 def orders_menu():
     global user
@@ -822,12 +966,17 @@ def set_pre_pay(id: int):
     orders_menu()
 
 def set_made(id: int):
-    global orders
+    global orders, storage
     order = orders.get_by_id(id)
     if order == None:
         print('\nНет заказа с таким ИД.')
         orders_menu()
     if input('\nВы точно хотите присвоить заказу статус \"Изготовлен\"? (y/n)\n') == 'y':
+        for fur_id in order.furniture_ids:
+            ok = storage.edit_del(fur_id['id'], 1)
+            if not ok:
+                print('\nМебели №' + str(fur_id['id']) + ' еще нет на складе.')
+                orders_menu()
         order.status = 2
         orders.edit(id, order)
         orders.save()
@@ -835,7 +984,7 @@ def set_made(id: int):
     orders_menu()
 
 def set_delivery(id: int):
-    global orders, employees
+    global orders, employees, storage
     order = orders.get_by_id(id)
     if order == None:
         print('\nНет заказа с таким ИД.')
@@ -953,15 +1102,19 @@ def help(i):
         print(h.help_furnitures)
     elif i == 4:
         print(h.help_orders)
+    elif i == 5:
+        print(h.help_storage)
 
 def read_all():
     global employees
     global clients
     global furnitures
+    global storage
     global orders
     employees.read()
     clients.read()
     furnitures.read()
+    storage.read()
     orders.read()
 
 print('\n/           /                Приветствую вас!                     \           \ \n')

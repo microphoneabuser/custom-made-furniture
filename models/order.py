@@ -4,7 +4,6 @@ from models.furnitures import Furnitures
 from ref_book import ref_book
 
 class Order:
-
     def __init__(self, id, client_id, furniture_ids=None, designer_id=None, manager_id=None, 
         courier_id=None, status=0, pre_pay=0.0, cost=0.0):
         self.id = id
